@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Map, { Source, Layer } from "react-map-gl/maplibre"
-import type { LayerProps } from 'react-map-gl/maplibre'
+import type { LayerProps, MapRef } from 'react-map-gl/maplibre'
 import { Card, CardHeader, CardTitle, CardContent } from "./components/ui/card"
 import { Slider } from "./components/ui/slider"
 import "maplibre-gl/dist/maplibre-gl.css"
@@ -68,6 +68,8 @@ const unclusteredPointLayer: LayerProps = {
 const surfaceClasses = "rounded-lg shadow-lg bg-background/80 backdrop-blur-md"
 
 export default function App() {
+    const mapRef = useRef<MapRef>(null)
+
     const [currentYear, setCurrentYear] = useState(2026)
     const [minYear, setMinYear] = useState(2026)
     const [selectedMine, setSelectedMine] = useState<any>(null)
@@ -89,7 +91,7 @@ export default function App() {
     }, [geoData, currentYear])
 
     useEffect(() => {
-        fetch("/mines.geojson")
+        fetch(`${import.meta.env.BASE_URL}/mines.geojson`)
             .then(res => res.json())
             .then(data => {
                 let lowestYear = 2026
@@ -108,6 +110,7 @@ export default function App() {
     return (
         <div className="relative w-full h-screen overflow-hidden">
             <Map
+                ref={mapRef}
                 initialViewState={{
                     longitude: -122.4,
                     latitude: 37.8,
@@ -118,12 +121,31 @@ export default function App() {
                 cursor={cursor}
                 onMouseEnter={() => setCursor("pointer")}
                 onMouseLeave={() => setCursor("")}
-                onClick={(e) => {
+                onClick={async (e) => {
                     if (e.features && e.features.length > 0) {
                         const feature = e.features[0]
 
                         if (feature.properties?.cluster) {
                             setSelectedMine(null)
+
+                            const map = mapRef.current
+                            if (!map) return
+
+                            const clusterId = feature.properties.cluster_id
+                            const source = map.getSource("my-data") as any
+
+                            try {
+                                const zoom = await source.getClusterExpansionZoom(clusterId)
+
+                                map.flyTo({
+                                    center: (feature.geometry as any).coordinates,
+                                    zoom: zoom,
+                                    duration: 1000
+                                })
+                            } catch (err) {
+                                console.error("Cluster zoom error:", err)
+                            }
+
                             return
                         }
 
