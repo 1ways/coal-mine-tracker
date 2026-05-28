@@ -20,7 +20,8 @@ fs.createReadStream("mines.csv")
                 },
                 properties: {
                     name: row["Mine Name"],
-                    year: parseInt(row["Opening Year"]) || null,
+                    openingYear: parseInt(row["Opening Year"]) || null,
+                    closingYear: parseInt(row["Closing Year"]) || null,
                     country: row["Country / Area"],
                     status: row["Status"],
                     production: row["Production (Mtpa)"],

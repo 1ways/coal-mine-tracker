@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Map, { Source, Layer } from "react-map-gl/maplibre"
-import type { LayerProps, MapRef } from 'react-map-gl/maplibre'
+import type { LayerProps, MapRef } from "react-map-gl/maplibre"
 import { Card, CardHeader, CardTitle, CardContent } from "./components/ui/card"
 import { Slider } from "./components/ui/slider"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import "maplibre-gl/dist/maplibre-gl.css"
 
 const rasterBasemap = {
@@ -17,7 +19,7 @@ const rasterBasemap = {
                 "https://d.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}@2x.png"
             ],
             tileSize: 256,
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+            attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
         }
     },
     layers: [
@@ -70,8 +72,11 @@ const surfaceClasses = "rounded-lg shadow-lg bg-background/80 backdrop-blur-md"
 export default function App() {
     const mapRef = useRef<MapRef>(null)
 
-    const [currentYear, setCurrentYear] = useState(2026)
-    const [minYear, setMinYear] = useState(2026)
+    const [isClustering, setIsClustering] = useState(true)
+    const [openingYearRange, setOpeningYearRange] = useState([0, 2026])
+    const [closingYearRange, setClosingYearRange] = useState([0, 2026])
+    const [minOpeningYear, setMinOpeningYear] = useState(2026)
+    const [minClosingYear, setMinClosingYear] = useState(2026)
     const [selectedMine, setSelectedMine] = useState<any>(null)
     const [cursor, setCursor] = useState("")
 
@@ -84,24 +89,44 @@ export default function App() {
         return {
             type: "FeatureCollection" as const,
             features: geoData.features.filter((item: any) => {
-                const year = item.properties?.year
-                return year && year <= currentYear
+                const openingYear = item.properties?.openingYear
+                const closingYear = item.properties?.closingYear
+
+                if (!openingYear || !closingYear) return false
+
+                const matchesOpening = openingYear >= openingYearRange[0] && openingYear <= openingYearRange[1]
+                const matchesClosing = closingYear >= closingYearRange[0] && closingYear <= closingYearRange[1]
+
+                return matchesOpening && matchesClosing
             })
         }
-    }, [geoData, currentYear])
+    }, [geoData, openingYearRange, closingYearRange])
 
     useEffect(() => {
         fetch(`${import.meta.env.BASE_URL}/mines.geojson`)
             .then(res => res.json())
             .then(data => {
-                let lowestYear = 2026
+                let lowestOpeningYear = 2026
+                let lowestClosingYear = 2026
+
                 for (let item of data.features) {
-                    const year = item.properties?.year
-                    if (year && year < lowestYear) {
-                        lowestYear = year
+                    const openingYear = item.properties?.openingYear
+                    if (openingYear && openingYear < lowestOpeningYear) {
+                        lowestOpeningYear = openingYear
+                    }
+
+                    const closingYear = item.properties?.closingYear
+                    if (closingYear && closingYear < lowestClosingYear) {
+                        lowestClosingYear = closingYear
                     }
                 }
-                setMinYear(lowestYear)
+
+                setMinOpeningYear(lowestOpeningYear)
+                setOpeningYearRange([lowestOpeningYear, 2026])
+
+                setMinClosingYear(lowestClosingYear)
+                setClosingYearRange([lowestClosingYear, 2026])
+
                 setGeoData(data)
             })
             .catch(err => console.error("Data loading error:", err))
@@ -156,10 +181,11 @@ export default function App() {
                 }}
             >
                 <Source
+                    key={String(isClustering)}
                     id="my-data"
                     type="geojson"
                     data={filteredData}
-                    cluster={true}
+                    cluster={isClustering}
                     clusterMaxZoom={14}
                     clusterRadius={50}
                 >
@@ -182,6 +208,29 @@ export default function App() {
                 </Card>
             </div>
 
+            <div className="absolute top-6 right-6 z-10">
+                <Card className={`${surfaceClasses} w-50`}>
+                    <CardHeader>
+                        <CardTitle>Settings</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <FieldGroup className="mx-auto w-56">
+                            <Field orientation="horizontal">
+                                <Checkbox
+                                    id="clustering-checkbox"
+                                    name="clustering-checkbox"
+                                    checked={isClustering}
+                                    onCheckedChange={(value) => setIsClustering(!!value)}
+                                />
+                                <FieldLabel htmlFor="clustering-checkbox">
+                                    {isClustering ? "Disable " : "Enable "} clustering
+                                </FieldLabel>
+                            </Field>
+                        </FieldGroup>
+                    </CardContent>
+                </Card>
+            </div>
+
             <div className={`absolute top-36 left-6 z-10 w-100 transition-all duration-300 ease-in-out ${selectedMine
                 ? "translate-y-0 opacity-100 pointer-events-auto"
                 : "translate-y-10 opacity-0 pointer-events-none"
@@ -192,7 +241,8 @@ export default function App() {
                     </CardHeader>
                     <CardContent className="space-y-2 text-sm">
                         <p><span className="font-semibold text-muted-foreground">Name:</span> {selectedMine?.name}</p>
-                        <p><span className="font-semibold text-muted-foreground">Opened:</span> {selectedMine?.year || "Unknown"}</p>
+                        <p><span className="font-semibold text-muted-foreground">Opened:</span> {selectedMine?.openingYear || "Unknown"}</p>
+                        <p><span className="font-semibold text-muted-foreground">Closed:</span> {selectedMine?.closingYear || "Unknown"}</p>
                         <p><span className="font-semibold text-muted-foreground">Country:</span> {selectedMine?.country || "Unknown"}</p>
                         <p><span className="font-semibold text-muted-foreground">Status:</span> {selectedMine?.status || "Unknown"}</p>
                         <p><span className="font-semibold text-muted-foreground">Production:</span> {selectedMine?.production ? `${selectedMine.production} Mtpa` : "Unknown"}</p>
@@ -201,20 +251,47 @@ export default function App() {
                 </Card>
             </div>
 
-            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-[70%] z-10">
-                <Card className={`${surfaceClasses} p-6`}>
+            <div className="absolute bottom-30 left-1/2 -translate-x-1/2 w-[70%] z-10">
+                <Card className={`${surfaceClasses} p-4`}>
                     <div className="mb-4 text-center font-semibold tracking-wide text-sm">
-                        Filtered by year: {currentYear}
+                        Mines opened from {openingYearRange[0]} to {openingYearRange[1]}
                     </div>
                     <Slider
-                        value={[currentYear]}
-                        onValueChange={value => setCurrentYear(value[0])}
+                        value={openingYearRange}
+                        onValueChange={value => setOpeningYearRange(value)}
                         max={2026}
-                        min={minYear}
+                        min={minOpeningYear}
+                        step={1}
+                    />
+                </Card>
+            </div>
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[70%] z-10">
+                <Card className={`${surfaceClasses} p-4`}>
+                    <div className="mb-4 text-center font-semibold tracking-wide text-sm">
+                        Mines closed from {closingYearRange[0]} to {closingYearRange[1]}
+                    </div>
+                    <Slider
+                        value={closingYearRange}
+                        onValueChange={value => setClosingYearRange(value)}
+                        max={2026}
+                        min={minClosingYear}
                         step={1}
                     />
                 </Card>
             </div>
         </div >
+    )
+}
+
+export function CheckboxBasic() {
+    return (
+        <FieldGroup className="mx-auto w-56">
+            <Field orientation="horizontal">
+                <Checkbox id="terms-checkbox-basic" name="terms-checkbox-basic" />
+                <FieldLabel htmlFor="terms-checkbox-basic">
+                    Accept terms and conditions
+                </FieldLabel>
+            </Field>
+        </FieldGroup>
     )
 }
