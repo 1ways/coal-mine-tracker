@@ -92,10 +92,12 @@ export default function App() {
                 const openingYear = item.properties?.openingYear
                 const closingYear = item.properties?.closingYear
 
-                if (!openingYear || !closingYear) return false
+                if (!openingYear) return false
 
                 const matchesOpening = openingYear >= openingYearRange[0] && openingYear <= openingYearRange[1]
-                const matchesClosing = closingYear >= closingYearRange[0] && closingYear <= closingYearRange[1]
+                const matchesClosing = closingYear ? closingYear >= closingYearRange[0] && closingYear <= closingYearRange[1] : true
+
+                console.log(matchesOpening && matchesClosing)
 
                 return matchesOpening && matchesClosing
             })
