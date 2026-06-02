@@ -75,8 +75,13 @@ export default function App() {
     const [isClustering, setIsClustering] = useState(true)
     const [openingYearRange, setOpeningYearRange] = useState([0, 2026])
     const [closingYearRange, setClosingYearRange] = useState([0, 2026])
+
     const [minOpeningYear, setMinOpeningYear] = useState(2026)
+    const [maxOpeningYear, setMaxOpeningYear] = useState(2026)
+
     const [minClosingYear, setMinClosingYear] = useState(2026)
+    const [maxClosingYear, setMaxClosingYear] = useState(2026)
+
     const [selectedMine, setSelectedMine] = useState<any>(null)
     const [cursor, setCursor] = useState("")
 
@@ -97,8 +102,6 @@ export default function App() {
                 const matchesOpening = openingYear >= openingYearRange[0] && openingYear <= openingYearRange[1]
                 const matchesClosing = closingYear ? closingYear >= closingYearRange[0] && closingYear <= closingYearRange[1] : true
 
-                console.log(matchesOpening && matchesClosing)
-
                 return matchesOpening && matchesClosing
             })
         }
@@ -109,25 +112,32 @@ export default function App() {
             .then(res => res.json())
             .then(data => {
                 let lowestOpeningYear = 2026
+                let highestOpeningYear = 2026
+
                 let lowestClosingYear = 2026
+                let highestClosingYear = 2026
 
                 for (let item of data.features) {
                     const openingYear = item.properties?.openingYear
-                    if (openingYear && openingYear < lowestOpeningYear) {
-                        lowestOpeningYear = openingYear
+                    if (openingYear) {
+                        if (openingYear < lowestOpeningYear) lowestOpeningYear = openingYear
+                        if (openingYear > highestOpeningYear) highestOpeningYear = openingYear
                     }
 
                     const closingYear = item.properties?.closingYear
-                    if (closingYear && closingYear < lowestClosingYear) {
-                        lowestClosingYear = closingYear
+                    if (closingYear) {
+                        if (closingYear < lowestClosingYear) lowestClosingYear = closingYear
+                        if (closingYear > highestClosingYear) highestClosingYear = closingYear
                     }
                 }
 
                 setMinOpeningYear(lowestOpeningYear)
-                setOpeningYearRange([lowestOpeningYear, 2026])
+                setMaxOpeningYear(highestOpeningYear)
+                setOpeningYearRange([lowestOpeningYear, highestOpeningYear])
 
                 setMinClosingYear(lowestClosingYear)
-                setClosingYearRange([lowestClosingYear, 2026])
+                setMaxClosingYear(highestClosingYear)
+                setClosingYearRange([lowestClosingYear, highestClosingYear])
 
                 setGeoData(data)
             })
@@ -261,7 +271,7 @@ export default function App() {
                     <Slider
                         value={openingYearRange}
                         onValueChange={value => setOpeningYearRange(value)}
-                        max={2026}
+                        max={maxOpeningYear}
                         min={minOpeningYear}
                         step={1}
                     />
@@ -275,7 +285,7 @@ export default function App() {
                     <Slider
                         value={closingYearRange}
                         onValueChange={value => setClosingYearRange(value)}
-                        max={2026}
+                        max={maxClosingYear}
                         min={minClosingYear}
                         step={1}
                     />
