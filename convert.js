@@ -16,7 +16,7 @@ fs.createReadStream("mines.csv")
                 type: "Feature",
                 geometry: {
                     type: "Point",
-                    coordinates: [parseFloat(row.Longitude), parseFloat(row.Latitude)]
+                    coordinates: [parseFloat(row.Longitude.replace(",", ".")), parseFloat(row.Latitude.replace(",", "."))]
                 },
                 properties: {
                     name: row["Mine Name"],
