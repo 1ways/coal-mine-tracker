@@ -79,7 +79,6 @@ export default function App() {
     const [minOpeningYear, setMinOpeningYear] = useState(2026)
     const [maxOpeningYear, setMaxOpeningYear] = useState(2026)
 
-    const [minClosingYear, setMinClosingYear] = useState(2026)
     const [maxClosingYear, setMaxClosingYear] = useState(2026)
 
     const [selectedMine, setSelectedMine] = useState<any>(null)
@@ -114,7 +113,6 @@ export default function App() {
                 let lowestOpeningYear = 2026
                 let highestOpeningYear = 2026
 
-                let lowestClosingYear = 2026
                 let highestClosingYear = 2026
 
                 for (let item of data.features) {
@@ -125,8 +123,7 @@ export default function App() {
                     }
 
                     const closingYear = item.properties?.closingYear
-                    if (closingYear) {
-                        if (closingYear < lowestClosingYear) lowestClosingYear = closingYear
+                    if (closingYear && closingYear > highestClosingYear) {
                         if (closingYear > highestClosingYear) highestClosingYear = closingYear
                     }
                 }
@@ -135,9 +132,8 @@ export default function App() {
                 setMaxOpeningYear(highestOpeningYear)
                 setOpeningYearRange([lowestOpeningYear, highestOpeningYear])
 
-                setMinClosingYear(lowestClosingYear)
                 setMaxClosingYear(highestClosingYear)
-                setClosingYearRange([lowestClosingYear, highestClosingYear])
+                setClosingYearRange([1900, highestClosingYear])
 
                 setGeoData(data)
             })
@@ -286,7 +282,7 @@ export default function App() {
                         value={closingYearRange}
                         onValueChange={value => setClosingYearRange(value)}
                         max={maxClosingYear}
-                        min={minClosingYear}
+                        min={1900}
                         step={1}
                     />
                 </Card>
