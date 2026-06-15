@@ -7,6 +7,17 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import "maplibre-gl/dist/maplibre-gl.css"
 
+const STATUS_COLORS: Record<string, string> = {
+    "Operating": "#ef4444",
+    "Proposed": "#3b82f6",
+    "Cancelled": "#22c55e",
+    "Shelved": "#4b5563",
+    "Mothballed": "#9ca3af",
+    "Closed": "#f97316"
+}
+
+const STATUSES = Object.keys(STATUS_COLORS)
+
 const rasterBasemap = {
     version: 8,
     sources: {
@@ -31,7 +42,7 @@ const rasterBasemap = {
             maxzoom: 22
         }
     ]
-};
+}
 
 const clusterLayer: LayerProps = {
     id: "clusters",
@@ -60,10 +71,39 @@ const unclusteredPointLayer: LayerProps = {
     filter: ["!", ["has", "point_count"]],
     paint: {
         "circle-radius": 8,
-        "circle-color": "#007cbf",
-        "circle-opacity": 0.6,
+        "circle-color": [
+            "match",
+            ["get", "status"],
+            "Operating", STATUS_COLORS["Operating"],
+            "Proposed", STATUS_COLORS["Proposed"],
+            "Cancelled", STATUS_COLORS["Cancelled"],
+            "Shelved", STATUS_COLORS["Shelved"],
+            "Mothballed", STATUS_COLORS["Mothballed"],
+            "Closed", STATUS_COLORS["Closed"],
+            "#007cbf"
+        ],
+        "circle-opacity": 0.8,
         "circle-stroke-width": 2,
         "circle-stroke-color": "#ffffff"
+    }
+}
+
+const unclusteredLabelLayer: LayerProps = {
+    id: "unclustered-label",
+    type: "symbol",
+    filter: ["!", ["has", "point_count"]],
+    minzoom: 6,
+    layout: {
+        "text-field": ["get", "yearLabel"],
+        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+        "text-size": 12,
+        "text-offset": [0, 1.2],
+        "text-anchor": "top"
+    },
+    paint: {
+        "text-color": "#ffffff",
+        "text-halo-color": "#000000",
+        "text-halo-width": 1.5
     }
 }
 
@@ -77,9 +117,8 @@ export default function App() {
     const [closingYearRange, setClosingYearRange] = useState([0, 2026])
 
     const [minOpeningYear, setMinOpeningYear] = useState(2026)
-    const [maxOpeningYear, setMaxOpeningYear] = useState(2026)
 
-    const [maxClosingYear, setMaxClosingYear] = useState(2026)
+    const [activeStatuses, setActiveStatuses] = useState<string[]>(STATUSES)
 
     const [selectedMine, setSelectedMine] = useState<any>(null)
     const [cursor, setCursor] = useState("")
@@ -90,50 +129,52 @@ export default function App() {
     })
 
     const filteredData = useMemo(() => {
+        const filteredFeatures = geoData.features.filter((item: any) => {
+            const openingYear = item.properties?.openingYear
+            const closingYear = item.properties?.closingYear
+            const status = item.properties?.status
+
+            if (!openingYear) return false
+
+            if (status && !activeStatuses.includes(status)) return false
+
+            const matchesOpening = openingYear >= openingYearRange[0] && openingYear <= openingYearRange[1]
+            const matchesClosing = closingYear ? closingYear >= closingYearRange[0] && closingYear <= closingYearRange[1] : true
+
+            return matchesOpening && matchesClosing
+        })
+
         return {
             type: "FeatureCollection" as const,
-            features: geoData.features.filter((item: any) => {
-                const openingYear = item.properties?.openingYear
-                const closingYear = item.properties?.closingYear
-
-                if (!openingYear) return false
-
-                const matchesOpening = openingYear >= openingYearRange[0] && openingYear <= openingYearRange[1]
-                const matchesClosing = closingYear ? closingYear >= closingYearRange[0] && closingYear <= closingYearRange[1] : true
-
-                return matchesOpening && matchesClosing
-            })
+            features: filteredFeatures.map((item: any) => ({
+                ...item,
+                properties: {
+                    ...item.properties,
+                    yearLabel: item.properties.closingYear
+                        ? `${item.properties.openingYear} - ${item.properties.closingYear}`
+                        : `${item.properties.openingYear}`
+                }
+            }))
         }
-    }, [geoData, openingYearRange, closingYearRange])
+    }, [geoData, openingYearRange, closingYearRange, activeStatuses])
 
     useEffect(() => {
         fetch(`${import.meta.env.BASE_URL}/mines.geojson`)
             .then(res => res.json())
             .then(data => {
                 let lowestOpeningYear = 2026
-                let highestOpeningYear = 2026
-
-                let highestClosingYear = 2026
 
                 for (let item of data.features) {
                     const openingYear = item.properties?.openingYear
                     if (openingYear) {
                         if (openingYear < lowestOpeningYear) lowestOpeningYear = openingYear
-                        if (openingYear > highestOpeningYear) highestOpeningYear = openingYear
-                    }
-
-                    const closingYear = item.properties?.closingYear
-                    if (closingYear && closingYear > highestClosingYear) {
-                        if (closingYear > highestClosingYear) highestClosingYear = closingYear
                     }
                 }
 
                 setMinOpeningYear(lowestOpeningYear)
-                setMaxOpeningYear(highestOpeningYear)
-                setOpeningYearRange([lowestOpeningYear, highestOpeningYear])
+                setOpeningYearRange([lowestOpeningYear, 2026])
 
-                setMaxClosingYear(highestClosingYear)
-                setClosingYearRange([1900, highestClosingYear])
+                setClosingYearRange([1900, 2026])
 
                 setGeoData(data)
             })
@@ -200,6 +241,7 @@ export default function App() {
                     <Layer {...clusterLayer} />
                     <Layer {...clusterCountLayer} />
                     <Layer {...unclusteredPointLayer} />
+                    <Layer {...unclusteredLabelLayer} />
                 </Source>
             </Map>
 
@@ -235,6 +277,32 @@ export default function App() {
                                 </FieldLabel>
                             </Field>
                         </FieldGroup>
+                        <div className="space-y-2 pt-2 border-border/50">
+                            <h4 className="text-sm font-semibold mb-3">Mine Status</h4>
+                            {STATUSES.map(status => (
+                                <div key={status} className="flex items-center space-x-3">
+                                    <Checkbox
+                                        id={`status-${status}`}
+                                        checked={activeStatuses.includes(status)}
+                                        onCheckedChange={(checked) => {
+                                            setActiveStatuses(prev =>
+                                                checked
+                                                    ? [...prev, status]
+                                                    : prev.filter(s => s !== status)
+                                            )
+                                        }}
+                                    />
+                                    <div
+                                        className="w-3 h-3 rounded-full shadow-sm"
+                                        style={{ backgroundColor: STATUS_COLORS[status] }}
+                                    />
+                                    <label htmlFor={`status-${status}`} className="text-sm cursor-pointer select-none">
+                                        {status}
+                                    </label>
+                                </div>
+                            ))}
+                            <p>{filteredData.features.length} selected</p>
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -267,7 +335,7 @@ export default function App() {
                     <Slider
                         value={openingYearRange}
                         onValueChange={value => setOpeningYearRange(value)}
-                        max={maxOpeningYear}
+                        max={2026}
                         min={minOpeningYear}
                         step={1}
                     />
@@ -281,7 +349,7 @@ export default function App() {
                     <Slider
                         value={closingYearRange}
                         onValueChange={value => setClosingYearRange(value)}
-                        max={maxClosingYear}
+                        max={2026}
                         min={1900}
                         step={1}
                     />
