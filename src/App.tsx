@@ -118,6 +118,8 @@ export default function App() {
 
     const [minOpeningYear, setMinOpeningYear] = useState(2026)
 
+    const [filterMode, setFilterMode] = useState<"opening" | "closing">("opening")
+
     const [activeStatuses, setActiveStatuses] = useState<string[]>(STATUSES)
 
     const [selectedMine, setSelectedMine] = useState<any>(null)
@@ -134,14 +136,15 @@ export default function App() {
             const closingYear = item.properties?.closingYear
             const status = item.properties?.status
 
-            if (!openingYear) return false
-
             if (status && !activeStatuses.includes(status)) return false
 
-            const matchesOpening = openingYear >= openingYearRange[0] && openingYear <= openingYearRange[1]
-            const matchesClosing = closingYear ? closingYear >= closingYearRange[0] && closingYear <= closingYearRange[1] : true
-
-            return matchesOpening && matchesClosing
+            if (filterMode === "opening") {
+                if (!openingYear) return false
+                return openingYear >= openingYearRange[0] && openingYear <= openingYearRange[1]
+            } else {
+                if (!closingYear) return false
+                return closingYear >= closingYearRange[0] && closingYear <= closingYearRange[1]
+            }
         })
 
         return {
@@ -156,7 +159,7 @@ export default function App() {
                 }
             }))
         }
-    }, [geoData, openingYearRange, closingYearRange, activeStatuses])
+    }, [geoData, openingYearRange, closingYearRange, activeStatuses, filterMode])
 
     useEffect(() => {
         fetch(`${import.meta.env.BASE_URL}/mines.geojson`)
@@ -327,47 +330,61 @@ export default function App() {
                 </Card>
             </div>
 
-            <div className="absolute bottom-30 left-1/2 -translate-x-1/2 w-[70%] z-10">
-                <Card className={`${surfaceClasses} p-4`}>
-                    <div className="mb-4 text-center font-semibold tracking-wide text-sm">
-                        Mines opened from {openingYearRange[0]} to {openingYearRange[1]}
+            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-[70%] z-10">
+                <Card className={`${surfaceClasses} p-6`}>
+                    <div className="flex justify-center space-x-8 mb-6">
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                                type="radio"
+                                name="filterMode"
+                                value="opening"
+                                checked={filterMode === "opening"}
+                                onChange={() => setFilterMode("opening")}
+                                className="w-4 h-4 accent-primary"
+                            />
+                            <span className="text-sm font-semibold">Filter by Opening Year</span>
+                        </label>
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                                type="radio"
+                                name="filterMode"
+                                value="closing"
+                                checked={filterMode === "closing"}
+                                onChange={() => setFilterMode("closing")}
+                                className="w-4 h-4 accent-primary"
+                            />
+                            <span className="text-sm font-semibold">Filter by Closing Year</span>
+                        </label>
                     </div>
-                    <Slider
-                        value={openingYearRange}
-                        onValueChange={value => setOpeningYearRange(value)}
-                        max={2026}
-                        min={minOpeningYear}
-                        step={1}
-                    />
-                </Card>
-            </div>
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[70%] z-10">
-                <Card className={`${surfaceClasses} p-4`}>
-                    <div className="mb-4 text-center font-semibold tracking-wide text-sm">
-                        Mines closed from {closingYearRange[0]} to {closingYearRange[1]}
-                    </div>
-                    <Slider
-                        value={closingYearRange}
-                        onValueChange={value => setClosingYearRange(value)}
-                        max={2026}
-                        min={1900}
-                        step={1}
-                    />
+                    {filterMode === "opening" ? (
+                        <>
+                            <div className="mb-4 text-center font-semibold tracking-wide text-sm text-muted-foreground">
+                                Mines opened from <span className="text-foreground">{openingYearRange[0]}</span> to <span className="text-foreground">{openingYearRange[1]}</span>
+                            </div>
+                            <Slider
+                                value={openingYearRange}
+                                onValueChange={value => setOpeningYearRange(value)}
+                                max={2026}
+                                min={minOpeningYear}
+                                step={1}
+                            />
+                        </>
+                    ) : (
+                        <>
+                            <div className="mb-4 text-center font-semibold tracking-wide text-sm text-muted-foreground">
+                                Mines closed from <span className="text-foreground">{closingYearRange[0]}</span> to <span className="text-foreground">{closingYearRange[1]}</span>
+                            </div>
+                            <Slider
+                                value={closingYearRange}
+                                onValueChange={value => setClosingYearRange(value)}
+                                max={2026}
+                                min={1900}
+                                step={1}
+                            />
+                        </>
+                    )}
                 </Card>
             </div>
         </div >
-    )
-}
-
-export function CheckboxBasic() {
-    return (
-        <FieldGroup className="mx-auto w-56">
-            <Field orientation="horizontal">
-                <Checkbox id="terms-checkbox-basic" name="terms-checkbox-basic" />
-                <FieldLabel htmlFor="terms-checkbox-basic">
-                    Accept terms and conditions
-                </FieldLabel>
-            </Field>
-        </FieldGroup>
     )
 }
