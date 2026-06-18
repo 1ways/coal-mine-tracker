@@ -13,7 +13,8 @@ const STATUS_COLORS: Record<string, string> = {
     "Cancelled": "#22c55e",
     "Shelved": "#4b5563",
     "Mothballed": "#9ca3af",
-    "Closed": "#f97316"
+    "Closed": "#f97316",
+    "Unknown": "#007cbf"
 }
 
 const STATUSES = Object.keys(STATUS_COLORS)
@@ -80,6 +81,7 @@ const unclusteredPointLayer: LayerProps = {
             "Shelved", STATUS_COLORS["Shelved"],
             "Mothballed", STATUS_COLORS["Mothballed"],
             "Closed", STATUS_COLORS["Closed"],
+            "Unknown", STATUS_COLORS["Unknown"],
             "#007cbf"
         ],
         "circle-opacity": 0.8,
@@ -140,10 +142,24 @@ export default function App() {
 
             if (filterMode === "opening") {
                 if (!openingYear) return true
-                return openingYear >= openingYearRange[0] && openingYear <= openingYearRange[1]
+
+                const isMin = openingYearRange[0] === minOpeningYear
+                const isMax = openingYearRange[1] === 2026
+
+                const passesMin = isMin ? true : openingYear >= openingYearRange[0]
+                const passesMax = isMax ? true : openingYear <= openingYearRange[1]
+
+                return passesMin && passesMax
             } else {
                 if (!closingYear) return true
-                return closingYear >= closingYearRange[0] && closingYear <= closingYearRange[1]
+
+                const isMin = closingYearRange[0] === 1900
+                const isMax = closingYearRange[1] === 2026
+
+                const passesMin = isMin ? true : closingYear >= closingYearRange[0]
+                const passesMax = isMax ? true : closingYear <= closingYearRange[1]
+
+                return passesMin && passesMax
             }
         })
 
@@ -173,7 +189,7 @@ export default function App() {
                 }
             })
         }
-    }, [geoData, openingYearRange, closingYearRange, activeStatuses, filterMode])
+    }, [geoData, openingYearRange, closingYearRange, activeStatuses, filterMode, minOpeningYear])
 
     useEffect(() => {
         fetch(`${import.meta.env.BASE_URL}/mines.geojson`)
