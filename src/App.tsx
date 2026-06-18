@@ -139,25 +139,39 @@ export default function App() {
             if (status && !activeStatuses.includes(status)) return false
 
             if (filterMode === "opening") {
-                if (!openingYear) return false
+                if (!openingYear) return true
                 return openingYear >= openingYearRange[0] && openingYear <= openingYearRange[1]
             } else {
-                if (!closingYear) return false
+                if (!closingYear) return true
                 return closingYear >= closingYearRange[0] && closingYear <= closingYearRange[1]
             }
         })
 
         return {
             type: "FeatureCollection" as const,
-            features: filteredFeatures.map((item: any) => ({
-                ...item,
-                properties: {
-                    ...item.properties,
-                    yearLabel: item.properties.closingYear
-                        ? `${item.properties.openingYear} - ${item.properties.closingYear}`
-                        : `${item.properties.openingYear}`
+            features: filteredFeatures.map((item: any) => {
+                const open = item.properties?.openingYear
+                const close = item.properties?.closingYear
+
+                let label = ""
+                if (open && close) {
+                    label = `${open} - ${close}`
+                } else if (open) {
+                    label = `${open}`
+                } else if (close) {
+                    label = `? - ${close}`
+                } else {
+                    label = "?"
                 }
-            }))
+
+                return {
+                    ...item,
+                    properties: {
+                        ...item.properties,
+                        yearLabel: label
+                    }
+                }
+            })
         }
     }, [geoData, openingYearRange, closingYearRange, activeStatuses, filterMode])
 
